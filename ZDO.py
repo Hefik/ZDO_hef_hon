@@ -6,6 +6,7 @@ import skimage.feature
 import skimage.filters
 import skimage.morphology
 import json
+
 from intersectLines import intersectLines
 
 from skimage.transform import (hough_line, hough_line_peaks,
@@ -18,6 +19,16 @@ import copy
 
 
 def figures4(img1, img2, img3, img4):
+    '''
+    Plot 4 images in one figure
+
+    :param img1: image 1
+    :param img2: image 2
+    :param img3: image 3
+    :param img4: image 4
+    :return:
+    '''
+
     plt.figure(figsize=(9, 4))
     plt.subplot(141)
     plt.title("gray")
@@ -32,29 +43,53 @@ def figures4(img1, img2, img3, img4):
     plt.imshow(img4)
 
 def sob_connect(img, treshold):
+    '''
+    Tresholding of image from soleb filter
+
+    :param img: image
+    :param treshold: treshold
+    :return: result image
+    '''
     img_connected = img > treshold  # or sob_red[:,:]<0.4
     img_connected = img_connected + (img < -treshold)
     return img_connected
 
-def hugh_lines(img, tested_angles):
+def hugh_lines(img, tested_angles,Viz):
+    '''
+    Finds lines in image facing given angle
+
+    :param img: image
+    :param tested_angles: Angles of lines
+    :param Viz: visualisation
+    :return: Points on found lines
+    '''
     h, theta, d = hough_line(img, theta=tested_angles)
-    plt.imshow(img, cmap=plt.cm.gray)
+    if Viz: plt.imshow(img, cmap=plt.cm.gray)
     rows, cols = img.shape
     y = []
     for _, angle, dist in zip(*hough_line_peaks(h, theta, d)):
         y0 = (dist - 0 * np.cos(angle)) / np.sin(angle)
         y1 = (dist - cols * np.cos(angle)) / np.sin(angle)
         y.append([y0, y1])
-        plt.plot((0, cols), (y0, y1), '-r')
-    plt.axis((0, cols, rows, 0))
+        if Viz: plt.plot((0, cols), (y0, y1), '-r')
+    if Viz:  plt.axis((0, cols, rows, 0))
     #plt.title('Detected lines')
-    plt.show()
+    if Viz: plt.show()
     return y
 
-def hugh_prob_lines(lines):
+def hugh_prob_lines(lines,Viz):
+    '''
+    Plot function for line decector
+
+    :param lines: lines
+    :param Viz: visualiation
+    :return: None
+    '''
     # plt.axis([0, imggray.shape[1], imggray.shape[0], 0])
     # plt.gca().set_aspect('auto')
     # # Calculate the desired aspect ratio
+    if Viz is False:
+        return
     aspect_ratio = imggray.shape[0] / imggray.shape[1]
 
     # Set the aspect ratio and limits of the axes
@@ -69,11 +104,39 @@ def hugh_prob_lines(lines):
         plt.plot((p0[0], p1[0]), (p0[1], p1[1]))
     plt.show()
 
+def load_file(file_name):
+    '''
+    Load image of given name from programs folder
+
+    :param file_name: name of file with suffix
+    :return: loaded file
+    '''
+    path='./images/default/'+file_name
+    img = skimage.io.imread(path)
+    return img
+
+def write_data_to_json_file(name, data):
+    '''
+    Writes data to JSON file with given name
+
+    :param name: name of file
+    :param data: data to write
+    :return: None
+    '''
+    with open(name, 'w') as file:
+        json.dump(data, file)
+
+
 FOLDER_PATH = './images/default/'
 files = os.listdir(FOLDER_PATH)
+count=0
+Viz=True
 for file in files:
+    count=count+1
+    if count>1:
+        break
     file_path = FOLDER_PATH + file
-    img = skimage.io.imread(file_path)
+    img = load_file(file)
     imggray = skimage.color.rgb2gray(img)
     imgdiff = copy.copy(imggray)
     for i in range(img.shape[0]):
@@ -85,32 +148,34 @@ for file in files:
     imgdiff /= 255
     # figures4(imggray, imgred, imgdiff, img)
 
+    if Viz:
+        plt.figure(figsize=(9, 4))
+        plt.subplot(141)
+        plt.title("gray")
+        plt.hist(imggray.ravel(), 40, density=False)
+        plt.subplot(142)
+        plt.title("red")
+        plt.hist(imgred.ravel(), 40, density=False)
+        plt.subplot(143)
+        plt.title("diff")
+        plt.hist(imgdiff.ravel(), 40, density=False)
+        plt.subplot(144)
+        plt.imshow(img)
 
-    plt.figure(figsize=(9, 4))
-    plt.subplot(141)
-    plt.title("gray")
-    plt.hist(imggray.ravel(), 40, density=False)
-    plt.subplot(142)
-    plt.title("red")
-    plt.hist(imgred.ravel(), 40, density=False)
-    plt.subplot(143)
-    plt.title("diff")
-    plt.hist(imgdiff.ravel(), 40, density=False)
-    plt.subplot(144)
-    plt.imshow(img)
 
 
     edge_roberts_gray = skimage.filters.roberts(imggray)
     edge_roberts_red = skimage.filters.roberts(imgred)
     edge_roberts_diff = skimage.filters.roberts(imgdiff)
-
-    # figures4(edge_roberts_gray, edge_roberts_red, edge_roberts_diff, img)
+    if Viz:
+         figures4(edge_roberts_gray, edge_roberts_red, edge_roberts_diff, img)
 
     edges_gray = skimage.feature.canny(imggray, sigma=2)
     edges_red = skimage.feature.canny(imgred, sigma=2)
     edges_diff = skimage.feature.canny(imgdiff, sigma=2)
 
-    figures4(edges_gray, edges_red, edges_diff, img)
+    if Viz:
+        figures4(edges_gray, edges_red, edges_diff, img)
 
 
     sob_gray = scipy.ndimage.filters.prewitt(imggray, 0)
@@ -119,10 +184,10 @@ for file in files:
 
     sob_gray_2 = scipy.ndimage.filters.prewitt(imggray)
     sob_red_2 = scipy.ndimage.filters.prewitt(imgred)
-    sob_diff_2 = scipy.ndimage.filters.prewitt(imgdiff)
-
-    # figures4(sob_gray, sob_red, sob_diff, img)
-    figures4(sob_gray_2, sob_red_2, sob_diff_2, img)
+    sob_diff_2 = scipy.ndimage.prewitt(imgdiff)
+    if Viz:
+        # figures4(sob_gray, sob_red, sob_diff, img)
+        figures4(sob_gray_2, sob_red_2, sob_diff_2, img)
     # mostly_red = img[60, 150]
     # mostly_blue = img[40, 25]
 
@@ -134,8 +199,9 @@ for file in files:
     sob_gray_2_connected = sob_connect(sob_gray_2, 0.1)
     sob_red_2_connected = sob_connect(sob_red_2, 0.1)
     sob_diff_2_connected = sob_connect(sob_diff_2, 0.05)
-
-    # figures4(sob_gray_connected, sob_red_connected, sob_diff_connected, img)
+    if Viz:
+        # figures4(sob_gray_connected, sob_red_connected, sob_diff_connected, img)
+        body=1
 
     line_length = 50
     threshold = 20
@@ -144,52 +210,60 @@ for file in files:
     lines_red = probabilistic_hough_line(edges_red, threshold=threshold, line_length=line_length, line_gap=line_gap)
     lines_diff = probabilistic_hough_line(edges_diff, threshold=threshold, line_length=line_length, line_gap=line_gap)
 
-    plt.figure(figsize=(9, 4))
-    plt.subplot(141)
-    plt.title("gray")
-    hugh_prob_lines(lines_gray)
-    plt.subplot(142)
-    plt.title("red")
-    hugh_prob_lines(lines_red)
-    plt.subplot(143)
-    plt.title("diff")
-    hugh_prob_lines(lines_diff)
-    plt.subplot(144)
-    plt.imshow(img)
 
+
+    if Viz:
+        plt.figure(figsize=(11, 4))
+        plt.subplot(141)
+        plt.title("gray")
+        hugh_prob_lines(lines_gray,Viz)
+        plt.subplot(142)
+        plt.title("red")
+        hugh_prob_lines(lines_red,Viz)
+        plt.subplot(143)
+        plt.title("diff")
+        hugh_prob_lines(lines_diff,Viz)
+        plt.subplot(144)
+        plt.imshow(img)
+    else:
+        hugh_prob_lines(lines_diff, Viz)
     # kernel = skimage.morphology.diamond(1)
     # closed_diff = skimage.morphology.binary_erosion(sob_diff_connected, kernel)
 
     tested_angles = np.linspace(np.pi/2 -np.pi / 3, np.pi/2 + np.pi / 3, 300, endpoint=False)
-
-    plt.figure(figsize=(9, 4))
-    plt.subplot(141)
-    plt.title("gray")
-    hugh_lines(sob_gray_connected, tested_angles)
-    plt.subplot(142)
-    plt.title("red")
-    hugh_lines(sob_red_connected, tested_angles)
-    plt.subplot(143)
-    plt.title("diff")
-    hugh_lines(sob_diff_connected, tested_angles)
-    plt.subplot(144)
-    plt.imshow(img)
+    if Viz:
+        plt.figure(figsize=(9, 4))
+        plt.subplot(141)
+        plt.title("gray")
+        hugh_lines(sob_gray_connected, tested_angles,Viz)
+        plt.subplot(142)
+        plt.title("red")
+        hugh_lines(sob_red_connected, tested_angles,Viz)
+        plt.subplot(143)
+        plt.title("diff")
+        hugh_lines(sob_diff_connected, tested_angles,Viz)
+        plt.subplot(144)
+        plt.imshow(img)
+    else:
+        hugh_lines(sob_diff_connected, tested_angles, Viz)
 
     tested_angles = np.linspace(-np.pi / 12, np.pi / 12, 100, endpoint=False)
 
-    plt.figure(figsize=(9, 4))
-    plt.subplot(141)
-    plt.title("gray")
-    y = hugh_lines(sob_gray_2_connected, tested_angles)
-    plt.subplot(142)
-    plt.title("red")
-    y = hugh_lines(sob_red_2_connected, tested_angles)
-    plt.subplot(143)
-    plt.title("diff")
-    y = hugh_lines(sob_diff_2_connected, tested_angles)
-    plt.subplot(144)
-    plt.imshow(img)
-
+    if Viz:
+        plt.figure(figsize=(9, 4))
+        plt.subplot(141)
+        plt.title("gray")
+        y = hugh_lines(sob_gray_2_connected, tested_angles,Viz)
+        plt.subplot(142)
+        plt.title("red")
+        y = hugh_lines(sob_red_2_connected, tested_angles,Viz)
+        plt.subplot(143)
+        plt.title("diff")
+        y = hugh_lines(sob_diff_2_connected, tested_angles,Viz)
+        plt.subplot(144)
+        plt.imshow(img)
+    else:
+        y = hugh_lines(sob_diff_2_connected, tested_angles,Viz)
     xi, yi, valid, r, s = intersectLines([imggray.shape[0], y[0][0]], [imggray.shape[1], y[0][1]], [imggray.shape[0], y[1][0]], [imggray.shape[1], y[1][1]])
     stredy = []
     indexiky = [None]*len(y)
