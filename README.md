@@ -1,4 +1,4 @@
-# ZDO_hef_hon
-Semestrální práce ze KKY/ZDO \n
-Tým Hefler-Honzík
-FAV ZČU
+# ZDO_hef_hon__
+Semestrální práce ze KKY/ZDO __
+Tým Hefler-Honzík__
+FAV ZČU__
