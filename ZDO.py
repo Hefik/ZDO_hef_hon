@@ -6,12 +6,12 @@ import skimage.feature
 import skimage.filters
 import skimage.morphology
 import json
-
 from intersectLines import intersectLines
 
 from skimage.transform import (hough_line, hough_line_peaks,
                                probabilistic_hough_line)
 import cv2
+
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -74,7 +74,7 @@ def hugh_lines(img, tested_angles,Viz):
         if Viz: plt.plot((0, cols), (y0, y1), '-r')
     if Viz:  plt.axis((0, cols, rows, 0))
     #plt.title('Detected lines')
-    if Viz: plt.show()
+    #if Viz: plt.show()
     return y
 
 def hugh_prob_lines(lines,Viz):
@@ -102,7 +102,52 @@ def hugh_prob_lines(lines,Viz):
     for line in lines:
         p0, p1 = line
         plt.plot((p0[0], p1[0]), (p0[1], p1[1]))
-    plt.show()
+    #plt.show()
+
+def line_mean(lines,d):
+    c=0
+    T=[]
+    Tl=[]
+    eps=10
+    new_lines=[]
+    app=False
+    for line in lines:
+        app=False
+        if len(T)==0:
+            T.append(line)
+            Tl.append(0)
+            continue
+        for tr in range(len(T)):
+            point1 = line[0]
+            point2 = line[1]
+            if abs(point1[d]-T[tr][0][d])<eps or abs(point2[d]-T[tr][1][d])<eps:
+                Tl.append(tr)
+                app=True
+                break
+        if app is False:
+                T.append(line)
+                Tl.append(len(T)-1)
+
+
+    for t in range(len(T)):
+        l=0
+        p11=0
+        p12=0
+        p21=0
+        p22=0
+        for i in range(len(Tl)):
+            if Tl[i]==t:
+                p11+=lines[i][0][0]
+                p12+=lines[i][0][1]
+                p21 += lines[i][1][0]
+                p22 += lines[i][1][1]
+                l+=1
+        p11=p11/l
+        p12=p12/l
+        p21 = p21 / l
+        p22 = p22 / l
+        new_lines.append([[p11, p12], [p21, p22]])
+    return new_lines
 
 def load_file(file_name):
     '''
@@ -130,10 +175,11 @@ def write_data_to_json_file(name, data):
 FOLDER_PATH = './images/default/'
 files = os.listdir(FOLDER_PATH)
 count=0
-Viz=True
+Viz=False
+
 for file in files:
     count=count+1
-    if count>1:
+    if count>10:
         break
     file_path = FOLDER_PATH + file
     img = load_file(file)
@@ -147,7 +193,7 @@ for file in files:
     imgred = img[:,:,2]/255
     imgdiff /= 255
     # figures4(imggray, imgred, imgdiff, img)
-
+    h, w = imggray.shape
     if Viz:
         plt.figure(figsize=(9, 4))
         plt.subplot(141)
@@ -200,13 +246,18 @@ for file in files:
     sob_red_2_connected = sob_connect(sob_red_2, 0.1)
     sob_diff_2_connected = sob_connect(sob_diff_2, 0.05)
     if Viz:
-        # figures4(sob_gray_connected, sob_red_connected, sob_diff_connected, img)
-        body=1
-
-    line_length = 50
-    threshold = 20
-    line_gap = 10
-    lines_gray = probabilistic_hough_line(edges_gray, threshold=threshold, line_length=line_length, line_gap=line_gap)
+        figures4(sob_gray_connected, sob_red_connected, sob_diff_connected, img)
+        #body=1
+    tested_angles = np.linspace(np.pi / 2 - np.pi / 10, np.pi / 2 + np.pi / 10, 100, endpoint=False)
+    line_length = 200
+    threshold = 5
+    line_gap = 15
+    lines_gray = probabilistic_hough_line(edges_gray, threshold=threshold, line_length=line_length, line_gap=line_gap, theta=tested_angles)
+    while line_length>70:# len(lines_gray)<2:
+        line_length-=10
+        lines_gray = probabilistic_hough_line(edges_gray, threshold=threshold, line_length=line_length,
+                                              line_gap=line_gap, theta=tested_angles)
+        if line_length<70: break
     lines_red = probabilistic_hough_line(edges_red, threshold=threshold, line_length=line_length, line_gap=line_gap)
     lines_diff = probabilistic_hough_line(edges_diff, threshold=threshold, line_length=line_length, line_gap=line_gap)
 
@@ -225,6 +276,7 @@ for file in files:
         hugh_prob_lines(lines_diff,Viz)
         plt.subplot(144)
         plt.imshow(img)
+        plt.show()
     else:
         hugh_prob_lines(lines_diff, Viz)
     # kernel = skimage.morphology.diamond(1)
@@ -235,7 +287,7 @@ for file in files:
         plt.figure(figsize=(9, 4))
         plt.subplot(141)
         plt.title("gray")
-        hugh_lines(sob_gray_connected, tested_angles,Viz)
+        jiz=hugh_lines(sob_gray_connected, tested_angles,Viz)
         plt.subplot(142)
         plt.title("red")
         hugh_lines(sob_red_connected, tested_angles,Viz)
@@ -249,42 +301,83 @@ for file in files:
 
     tested_angles = np.linspace(-np.pi / 12, np.pi / 12, 100, endpoint=False)
 
-    if Viz:
-        plt.figure(figsize=(9, 4))
-        plt.subplot(141)
-        plt.title("gray")
-        y = hugh_lines(sob_gray_2_connected, tested_angles,Viz)
-        plt.subplot(142)
-        plt.title("red")
-        y = hugh_lines(sob_red_2_connected, tested_angles,Viz)
-        plt.subplot(143)
-        plt.title("diff")
-        y = hugh_lines(sob_diff_2_connected, tested_angles,Viz)
-        plt.subplot(144)
-        plt.imshow(img)
-    else:
-        y = hugh_lines(sob_diff_2_connected, tested_angles,Viz)
-    xi, yi, valid, r, s = intersectLines([imggray.shape[0], y[0][0]], [imggray.shape[1], y[0][1]], [imggray.shape[0], y[1][0]], [imggray.shape[1], y[1][1]])
-    stredy = []
-    indexiky = [None]*len(y)
-    for i in range(len(y)):
-        for j in range(i+1, len(y)):
-            xi, yi, valid, r, s = intersectLines([imggray.shape[0], y[i][0]], [imggray.shape[1], y[i][1]],
-                                                 [imggray.shape[0], y[j][0]], [imggray.shape[1], y[j][1]])
-            if xi > 0 and xi < imggray.shape[1] and yi > 0 and yi < imggray.shape[0]:
-                appended = False
-                for k in range(len(stredy)):
-                    if abs(stredy[k][0] - yi) < 50 and abs(stredy[k][1] - xi) < 10:
-                        appended = True
-                        if indexiky[i] is None:
-                            indexiky[i] = k
+    threshold = 15
+    line_length = int(h*7/20) #20
+    line_gap = 2
+    stitch_diff = probabilistic_hough_line(sob_gray_2_connected, threshold=threshold, line_length=line_length, line_gap=line_gap, theta=tested_angles)
+    plt.figure()
+    hugh_prob_lines(stitch_diff, True)
+    plt.imshow(img)
+    plt.show()
+    st=line_mean(stitch_diff,0)
+    jiz=line_mean(lines_gray,1)
+    plt.figure()
+    hugh_prob_lines(jiz, True)
+    hugh_prob_lines(st, True)
+    plt.imshow(edges_gray)
+    plt.show()
+    #
+    # if Viz:
+    #     plt.figure(figsize=(9, 4))
+    #     plt.subplot(141)
+    #     plt.title("gray")
+    #     y = hugh_lines(sob_gray_2_connected, tested_angles,Viz)
+    #     plt.subplot(142)
+    #     plt.title("red")
+    #     y = hugh_lines(sob_red_2_connected, tested_angles,Viz)
+    #     plt.subplot(143)
+    #     plt.title("diff")
+    #     y = hugh_lines(sob_diff_2_connected, tested_angles,Viz)
+    #     plt.subplot(144)
+    #     plt.imshow(img)
+    # else:
+    #     y = hugh_lines(sob_diff_2_connected, tested_angles,Viz)
+    # xi, yi, valid, r, s = intersectLines([imggray.shape[0], y[0][0]], [imggray.shape[1], y[0][1]], [imggray.shape[0], y[1][0]], [imggray.shape[1], y[1][1]])
+    # stredy = []
+    # indexiky = [None]*len(y)
+    # volnyCislicko=0
+    # for i in range(len(y)):
+    #     for j in range(i+1, len(y)):
+    #         xi, yi, valid, r, s = intersectLines([0, y[i][0]], [w, y[i][1]],
+    #                                              [0, y[j][0]], [w, y[j][1]])
+    #         if xi > 0 and xi < imggray.shape[1] and yi > 0 and yi < imggray.shape[0] and valid:
+    #             if indexiky[i] is None and indexiky[j] is None:
+    #                 indexiky[i] = volnyCislicko
+    #                 indexiky[j] = volnyCislicko
+    #                 volnyCislicko += 1
+    #             if indexiky[i] is not None:
+    #                 indexiky[j] = indexiky[i]
+    #             elif indexiky[j] is not None:
+    #                 indexiky[i] = indexiky[j]
+    # for i in range(len(indexiky)):
+    #     if indexiky[i] is None:
+    #         indexiky[i]=volnyCislicko
+    #         volnyCislicko+=1
+    #
 
-                if not appended:
-                    stredy.append([yi, xi])
-                    if indexiky[i] is None:
-                        indexiky[i] = len(stredy)-1
 
+    # stitch=[]
+    # for i in range(volnyCislicko):
+    #     break
+    #     lin1=[]
+    #     s0=0
+    #     s1=0
+    #     for ind in range(len(indexiky)):
+    #         if indexiky[ind]==i:
+    #             lin1.append(y[ind])
+    #             s0 = s0 + y[ind][0]
+    #             s1 = s1 + y[ind][1]
+    #     l=len(lin1)
+    #     s0=int(s0/l)
+    #     s1=int(s1/l)
+    #     stitch.append([[0, s0], [w, s1]])
 
+    # if Viz:
+    #     #plt.figure([1,3,3])
+    #     y = hugh_lines(sob_diff_2_connected, tested_angles, True)
+    #     hugh_prob_lines(stitch, True)
+    #     plt.imshow(img)
+    #     plt.show()
     # break
 
 print()
