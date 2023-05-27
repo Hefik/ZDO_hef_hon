@@ -289,8 +289,8 @@ if arglen == 0:
     print("No input arguments - starting demo with visualization")
     FOLDER_PATH = './images/default/'
     files = os.listdir(FOLDER_PATH)
-    #files=files[0:1]
-    Viz = False
+    files=files[0:4]
+    Viz = True
     data = []
     file_name = "out.json"
 else:
@@ -484,10 +484,10 @@ for file in files:
     cross,ang=sort_data(cross,ang)
 
 
-    if True:
+    if Viz:
         plt.figure()
-        hugh_prob_lines(jiz, True, w)
-        hugh_prob_lines(st, True,w)
+        hugh_prob_lines(jiz, Viz, w)
+        hugh_prob_lines(st, Viz,w)
         plt.imshow(img)
         plt.show()
 
