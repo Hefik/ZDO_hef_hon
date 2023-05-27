@@ -189,29 +189,32 @@ def eval(inc, stitch):
     cross_pos=[]
     cross_ang=[]
     inc_line=[]
-    for sti in stitch:
-        sti=np.array(sti)
-        for inci in inc:
-            inci=np.array(inci)
-            x,y,val,r,s = intersectLines(inci[0], inci[1], sti[0], sti[1])
-            if val is False:
-                continue
-            else:
-                if inci[0][0]< inci[1][0]:
-                    x_inc=inci[0][0]
-                else: x_inc=inci[1][0]
-                x_true=abs(x-x_inc )
-                d1= inci[0]-inci[1]
-                d2=sti[0]-sti[1]
-                temp=np.matmul(d1,np.transpose(d2))
-                n1=np.linalg.norm(d1)
-                n2=np.linalg.norm(d2)
-                ang=np.arccos(temp/(n1*n2))
-                ang=np.rad2deg(ang)
-            if val:
-                break
-        cross_pos.append(x_true)
-        cross_ang.append(ang)
+    try:
+        for sti in stitch:
+            sti=np.array(sti)
+            for inci in inc:
+                inci=np.array(inci)
+                x,y,val,r,s = intersectLines(inci[0], inci[1], sti[0], sti[1])
+                if val is False:
+                    continue
+                else:
+                    if inci[0][0]< inci[1][0]:
+                        x_inc=inci[0][0]
+                    else: x_inc=inci[1][0]
+                    x_true=abs(x-x_inc )
+                    d1= inci[0]-inci[1]
+                    d2=sti[0]-sti[1]
+                    temp=np.matmul(d1,np.transpose(d2))
+                    n1=np.linalg.norm(d1)
+                    n2=np.linalg.norm(d2)
+                    ang=np.arccos(temp/(n1*n2))
+                    ang=np.rad2deg(ang)
+                if val:
+                    break
+            cross_pos.append(x_true)
+            cross_ang.append(ang)
+    except:
+        cross_pos = []
     inc_line=inc
 
     return inc_line, cross_pos, cross_ang
@@ -250,9 +253,11 @@ def fix_inc(inc):
     m=LinearRegression().fit(x,y)
     xmin=min(x)
     xmax=max(x)
-    y1=m.predict(xmin)
-    y2=m.predict(xmax)
-    new_inc=[[xmin, y1],[xmax,y2]]
+    try:
+        y1=m.predict(xmin)
+        y2=m.predict(xmax)
+        new_inc=[[xmin, y1],[xmax,y2]]
+    except: new_inc=inc[0]
     return  new_inc
 
 def load_file(file_name):
@@ -284,8 +289,8 @@ if arglen == 0:
     print("No input arguments - starting demo with visualization")
     FOLDER_PATH = './images/default/'
     files = os.listdir(FOLDER_PATH)
-    files=files[0:5]
-    Viz = True
+    #files=files[0:1]
+    Viz = False
     data = []
     file_name = "out.json"
 else:
@@ -311,7 +316,14 @@ for file in files:
     alt = False
     file_path =file
     img = load_file(file)
+
     imggray = skimage.color.rgb2gray(img)
+    h, w = imggray.shape
+    if h>w:
+        imggray=np.rot90(imggray)
+        img=np.rot90(img)
+        h, w = imggray.shape
+
     imgdiff = copy.copy(imggray)
     for i in range(img.shape[0]):
         for j in range(img.shape[1]):
@@ -322,7 +334,7 @@ for file in files:
     imgdiff /= 255
     if Viz:
         figures4(imggray, imgred, imgdiff, img)
-    h, w = imggray.shape
+
     if Viz:
         plt.figure(figsize=(9, 4))
         plt.subplot(141)
@@ -363,8 +375,7 @@ for file in files:
     if Viz:
         # figures4(sob_gray, sob_red, sob_diff, img)
         figures4(sob_gray_2, sob_red_2, sob_diff_2, img)
-    # mostly_red = img[60, 150]
-    # mostly_blue = img[40, 25]
+
 
     intensity = 0.1  # jas v poměru k velikosti obrázku
     sob_gray_connected = adaptive_sob_connect(sob_gray, intensity)
@@ -423,12 +434,11 @@ for file in files:
         plt.subplot(144)
         plt.imshow(img)
         plt.show()
-    else:
-        hugh_prob_lines(lines_diff, Viz,w)
+
     # kernel = skimage.morphology.diamond(1)
     # closed_diff = skimage.morphology.binary_erosion(sob_diff_connected, kernel)
-
-    # tested_angles = np.linspace(np.pi/2 -np.pi / 3, np.pi/2 + np.pi / 3, 300, endpoint=False)
+    # norm hough
+    #tested_angles = np.linspace(np.pi/2 -np.pi / 3, np.pi/2 + np.pi / 3, 300, endpoint=False)
     # if Viz:
     #     plt.figure(figsize=(9, 4))
     #     plt.subplot(141)
@@ -462,7 +472,7 @@ for file in files:
 
    # if alt is False:
     jiz=line_mean(lines_gray,1,sob_diff)
-    if len(jiz)>1:
+    if len(jiz)>=2:
         jiz=fix_inc(jiz)
 
     # else:
@@ -474,10 +484,10 @@ for file in files:
     cross,ang=sort_data(cross,ang)
 
 
-    if Viz:
+    if True:
         plt.figure()
-        hugh_prob_lines(jiz, Viz, w)
-        hugh_prob_lines(st, Viz,w)
+        hugh_prob_lines(jiz, True, w)
+        hugh_prob_lines(st, True,w)
         plt.imshow(img)
         plt.show()
 
@@ -528,8 +538,8 @@ for file in files:
     #         indexiky[i]=volnyCislicko
     #         volnyCislicko+=1
     #
-
-
+    #
+    #
     # stitch=[]
     # for i in range(volnyCislicko):
     #     break
@@ -545,13 +555,13 @@ for file in files:
     #     s0=int(s0/l)
     #     s1=int(s1/l)
     #     stitch.append([[0, s0], [w, s1]])
-
+    #
     # if Viz:
     #     #plt.figure([1,3,3])
     #     y = hugh_lines(sob_diff_2_connected, tested_angles, True)
-    #     hugh_prob_lines(stitch, True)
+    #     hugh_prob_lines(stitch, True,w)
     #     plt.imshow(img)
     #     plt.show()
-    # break
+
 write_data_to_json_file(file_name,data)
 
